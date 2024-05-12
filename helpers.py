@@ -1,6 +1,89 @@
 
 import opensim as osim
 from scipy.spatial.transform import Rotation as R
+import pandas as pd
+import numpy as np
+
+
+# Read quaternion data from a csv file, given the column headers
+def read_data_frame_from_file(input_file):
+    with open(input_file, 'r') as file:
+        df = pd.read_csv(file, header=0, sep=",")
+    # Make seperate data_out frames
+    humerus_quats = df.filter(["Shoulder W", "Shoulder X", "Shoulder Y", "Shoulder Z"], axis=1)
+    clavicle_quats = df.filter(["Clavicle W", "Clavicle X", "Clavicle Y", "Clavicle Z"], axis=1)
+    thorax_quats = df.filter(["Thorax W", "Thorax X", "Thorax Y", "Thorax Z"], axis=1)
+    radius_quats = df.filter(["Elbow W", "Elbow X", "Elbow Y", "Elbow Z"], axis=1)
+    return thorax_quats, clavicle_quats, humerus_quats, radius_quats
+
+
+# Write new data_out to APDM file template
+def write_to_APDM_csv(df_1, df_2, df_3, df_4, template_file, output_dir, csv_file_name):
+
+    # Make columns of zeros
+    N = len(df_1)
+    zeros_25_df = pd.DataFrame(np.zeros((N, 25)))
+    zeros_11_df = pd.DataFrame(np.zeros((N, 11)))
+    zeros_2_df = pd.DataFrame(np.zeros((N, 2)))
+
+    # Make a dataframe with zeros columns inbetween the data_out
+    IMU_and_zeros_df = pd.concat(
+        [zeros_25_df, df_1, zeros_11_df, df_2, zeros_11_df, df_3, zeros_11_df, df_4, zeros_2_df], axis=1)
+
+    # Read in the APDM template and save as an array
+    with open(template_file, 'r') as file:
+        template_df = pd.read_csv(file, header=0)
+        template_array = template_df.to_numpy()
+
+    # Concatenate the IMU_and_zeros and the APDM template headings
+    IMU_and_zeros_array = IMU_and_zeros_df.to_numpy()
+    new_array = np.concatenate((template_array, IMU_and_zeros_array), axis=0)
+    new_df = pd.DataFrame(new_array)
+
+    # Add the new dataframe into the template
+    new_df.to_csv(output_dir + "\\" + csv_file_name, mode='w', index=False, header=False, encoding='utf-8', na_rep='nan')
+
+
+# Use OpenSim's APDMDataReader tool to convert APDM csv file to sto file
+def APDM_2_sto_Converter(APDM_settings_file, input_file, output_file):
+
+    # Build an APDM Settings Object
+    # Instantiate the Reader Settings Class
+    APDMSettings = osim.APDMDataReaderSettings(APDM_settings_file)
+    # Instantiate an APDMDataReader
+    APDM = osim.APDMDataReader(APDMSettings)
+
+    # Read in table of movement data_out from the specified IMU file
+    table = APDM.read(input_file)
+    # Get Orientation Data as quaternions
+    quatTable = APDM.getOrientationsTable(table)
+
+    # Write to file
+    osim.STOFileAdapterQuaternion.write(quatTable, output_file)
+
+
+
+# Function to read .csv file with quaternion data and save it to .sto file
+# (This uses OpenSim's 'APDM_2_sto_Converter', so we first save the data in the format of an APDM .csv data file
+# as a mid-point between the input .csv and the .sto.)
+def write_movements_and_calibration_stos(file_path, output_dir, APDM_template_csv, APDM_settings_file):
+
+    # Read data from the .csv file, save as dataframes
+    thorax_quats, clavicle_quats, humerus_quats, radius_quats = read_data_frame_from_file(file_path)
+
+    # Write the data to an APDM-style .csv file
+    csv_file_name = 'APDM_Kinect_Body_Quats_all.csv'
+    write_to_APDM_csv(thorax_quats, clavicle_quats, humerus_quats, radius_quats,
+                      APDM_template_csv, output_dir, csv_file_name)
+
+    # Write the data to an .sto using OpenSim APDM converter tool
+    sto_file_name = 'Kinect_Body_Quats_all.sto'
+    APDM_2_sto_Converter(APDM_settings_file, input_file=output_dir + "\\" + csv_file_name,
+                         output_file=output_dir + "\\" + sto_file_name)
+
+
+
+
 
 
 
@@ -74,9 +157,8 @@ def run_osim_IMU_IK(IMU_IK_settings_file, calibrated_model_file, orientations_fi
 
     # Set IMU weights
     thorax_imu_weight = osim.OrientationWeight('thorax_imu', 1.0)
-    humerus_imu_weight = osim.OrientationWeight('humerus_r_imu', 0.1)
+    humerus_imu_weight = osim.OrientationWeight('humerus_r_imu', 1.0)
     radius_imu_weight = osim.OrientationWeight('radius_r_imu', 1.0)
-    print('WARNING: Humerus IMU weight set to 0.1')
     imuIK.upd_orientation_weights().cloneAndAppend(thorax_imu_weight)
     imuIK.upd_orientation_weights().cloneAndAppend(humerus_imu_weight)
     imuIK.upd_orientation_weights().cloneAndAppend(radius_imu_weight)
@@ -84,5 +166,5 @@ def run_osim_IMU_IK(IMU_IK_settings_file, calibrated_model_file, orientations_fi
     # Run IK
     imuIK.run(visualize_tracking)
 
-    # Update the settings .xml file
-    imuIK.printToXML(results_directory + "\\" + IMU_IK_settings_file)
+    # # Save the settings .xml file for reference
+    # imuIK.printToXML(results_directory + "\\" + IMU_IK_settings_file)

@@ -8,12 +8,20 @@ from helpers import *
 """ SETTINGS """
 
 
+
+
 # Define some file paths
 parent_dir = os.getcwd()
 results_dir = os.path.join(parent_dir, 'Results')
 data_dir = os.path.join(parent_dir, 'Data')
 IMU_IK_settings_template_file = os.path.join(parent_dir, 'Settings Files', 'IMU_IK_Settings.xml')
+APDM_converter_settings_file = os.path.join(parent_dir, 'Settings Files', 'APDMDataConverter_Settings.xml')
+APDM_template_csv = os.path.join(parent_dir, 'APDM_template_4S.csv')
 
+# Define the input data file names
+Kinect_body_quat_csv_file = os.path.join(data_dir, 'sflex-k_quats.csv')
+
+Kinect_sto_file = os.path.join(data_dir, 'Kinect_Body_Quats_all.sto')   # This will be created when you run write_movements_and_calibration_stos()
 
 # Calibration settings
 template_model_file = 'das3_scaled_and_placed_middle.osim'
@@ -33,6 +41,12 @@ visualize_tracking = False
 
 """ MAIN """
 
+
+# Convert the .csv quaternion data into an .sto file so that OpenSim can read it
+write_movements_and_calibration_stos(Kinect_body_quat_csv_file, data_dir, APDM_template_csv,
+                                     APDM_converter_settings_file)
+
+
 ### I manually added some IMUs into the model xml file
 
 
@@ -49,7 +63,7 @@ apply_cal_to_model(thorax_virtual_IMU, humerus_virtual_IMU, radius_virtual_IMU, 
 
 
 # Run IMU Inverse Kinematics
-
-run_osim_IMU_IK(IMU_IK_settings_template_file, calibrated_model_file_name, orientations_file,
+orientations_data = Kinect_sto_file
+run_osim_IMU_IK(IMU_IK_settings_template_file, calibrated_model_file_name, orientations_data,
                sensor_to_opensim_rotations, results_dir, trim_bool,
                start_time, end_time, IK_output_file_name, visualize_tracking)
