@@ -30,37 +30,37 @@ calibrated_model_file_name = 'Calibrated_das3_scaled_and_placed_middle.osim'
 
 # IK Settings
 oris_sto = 'x'  # Input orientations file
-sensor_to_opensim_rotations = osim.Vec3(0, 0, 0)
+sensor_to_opensim_rotations = osim.Vec3(0, 0, 0)      # Rotate the Kinext orientation data to match OpenSim's y-up global frame
 baseIMUName = 'thorax_imu'
 baseIMUHeading = '-x'  # Which axis of the thorax IMU points in same direction as the model's thorax x-axis?
-trim_bool = False
-start_time = None
-end_time = None
+trim_bool = False   # Specify whether or not to trim the data before running IK
+start_time = None   # Enter start time for trim function in seconds
+end_time = None     # Enter end time for trim function in seconds
 IK_output_file_name = os.path.join(results_dir, 'IK_Results.mot')
 visualize_tracking = False
 
 """ MAIN """
 
+    # TODO: Remove the scapual and clavicle from this model, and unclamp the joints
+#  so that humerus can perfectly match the Kinect CFs
+
 
 # Convert the .csv quaternion data into an .sto file so that OpenSim can read it
-write_movements_and_calibration_stos(Kinect_body_quat_csv_file, data_dir, APDM_template_csv,
-                                     APDM_converter_settings_file)
+convert_csv_ori_data_to_sto(Kinect_body_quat_csv_file, data_dir, APDM_template_csv, APDM_converter_settings_file)
 
 
 ### I manually added some IMUs into the model xml file
 
 
 # Calibrate the model
-# Use 'manual' calibration, not OpenSim's built-in IMU calibration, which is based on an intial pose
+# Use 'manual' calibration, not OpenSim's built-in IMU calibration, which is based on an initial pose
 # The 'manual' calibration essentially defines the input Kinect CFs as being perfectly aligned with the
 # bodies we're trying to track
 
 thorax_virtual_IMU = get_IMU_cal_MANUAL('Thorax')
 humerus_virtual_IMU = get_IMU_cal_MANUAL('Humerus')
 radius_virtual_IMU = get_IMU_cal_MANUAL('Radius')
-
 apply_cal_to_model(thorax_virtual_IMU, humerus_virtual_IMU, radius_virtual_IMU, template_model_file, results_dir)
-
 
 # Run IMU Inverse Kinematics
 orientations_data = Kinect_sto_file

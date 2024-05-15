@@ -66,14 +66,20 @@ def APDM_2_sto_Converter(APDM_settings_file, input_file, output_file):
 # Function to read .csv file with quaternion data and save it to .sto file
 # (This uses OpenSim's 'APDM_2_sto_Converter', so we first save the data in the format of an APDM .csv data file
 # as a mid-point between the input .csv and the .sto.)
-def write_movements_and_calibration_stos(file_path, output_dir, APDM_template_csv, APDM_settings_file):
+def convert_csv_ori_data_to_sto(file_path, output_dir, APDM_template_csv, APDM_settings_file):
 
     # Read data from the .csv file, save as dataframes
     thorax_quats, clavicle_quats, humerus_quats, radius_quats = read_data_frame_from_file(file_path)
 
+    # Rotate the Kinect orientation data to match OpenSim's y-up global coordinate frame (Kinect is y-down)
+    thorax_quats_rotated = get_rotated_quats(thorax_quats)
+    clavicle_quats_rotated = get_rotated_quats(clavicle_quats)
+    humerus_quats_rotated = get_rotated_quats(humerus_quats)
+    radius_quats_rotated = get_rotated_quats(radius_quats)
+
     # Write the data to an APDM-style .csv file
-    csv_file_name = 'APDM_Kinect_Body_Quats_all.csv'
-    write_to_APDM_csv(thorax_quats, clavicle_quats, humerus_quats, radius_quats,
+    csv_file_name = 'APDM_Kinect_Body_quats_all.csv'
+    write_to_APDM_csv(thorax_quats_rotated, clavicle_quats_rotated, humerus_quats_rotated, radius_quats_rotated,
                       APDM_template_csv, output_dir, csv_file_name)
 
     # Write the data to an .sto using OpenSim APDM converter tool
@@ -83,8 +89,28 @@ def write_movements_and_calibration_stos(file_path, output_dir, APDM_template_cs
 
 
 
+# Takes a dataframe of quaternions and applies an extrinsic euler rotation
+def get_rotated_quats(quats_df):
 
+    # Sepcify the rotation to be applied
+    rot_2_apply = R.from_euler('x', 180, degrees=True)
 
+    # Convert dfs to numpy arrays
+    quats_np = quats_df.to_numpy()
+
+    # Create scipy Rs from the arrays (convert from scalar-first to scaler-last format)
+    quats_R = R.from_quat(quats_np[:, [1, 2, 3, 0]])
+
+    # Apply a rotation to the quats
+    R_rotated = rot_2_apply * quats_R
+
+    # Turn the R back into a np array
+    quats_rotated_np = R_rotated.as_quat()
+
+    # Save as pd Dataframe (convert from scalar-last to scaler-first format)
+    quats_rotated_df = pd.DataFrame(quats_rotated_np[:, [3, 0, 1, 2]])
+
+    return quats_rotated_df
 
 
 # This function calculates the IMU offset required which is equivalent to relying on 'manual alignment'
