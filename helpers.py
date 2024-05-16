@@ -1,3 +1,4 @@
+# Helper functions to support main.py and calibrate_model.py
 
 import opensim as osim
 from scipy.spatial.transform import Rotation as R

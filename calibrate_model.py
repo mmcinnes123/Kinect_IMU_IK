@@ -1,5 +1,6 @@
+# Script to define the orientation of the virtual IMUs in the model.
+
 """
-This script defines the orientation of the virtual IMUs in the model.
  'Calibrating the model' is equivalent to defining the orientation of each virtual IMU which is rigidly
  attached to its corresponding model body.
  The 'virtual_IMU' rotation has been chosen, specific to each body, based on the orientation of the body CF,
